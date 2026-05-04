@@ -19,7 +19,7 @@ from datetime import datetime
 
 class TradingMLModel:
     """
-    Ensemble ML modell: három modell szavazással dönt.
+    Ensemble ML modell
     Target: 1 = BUY, 0 = HOLD, -1 = SELL
     """
 
@@ -221,7 +221,7 @@ class TradingMLModel:
         self.is_trained = True
         self.last_train_time = datetime.now()
 
-        print(f"    ✅ Ensemble: {self.train_metrics['ensemble_accuracy']:.1%} "
+        print(f"    Ensemble: {self.train_metrics['ensemble_accuracy']:.1%} "
               f"(RF:{self.train_metrics['rf_accuracy']:.1%} "
               f"GB:{self.train_metrics['gb_accuracy']:.1%} "
               f"LR:{self.train_metrics['lr_accuracy']:.1%})")

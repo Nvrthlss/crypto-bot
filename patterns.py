@@ -23,10 +23,10 @@ def detect_all_patterns(df: pd.DataFrame) -> pd.DataFrame:
 
     # === SINGLE CANDLE PATTERNS ===
 
-    # Doji - nagyon kicsi test
+    # Doji
     df["pat_doji"] = (df["body_abs"] < avg_body * 0.1).astype(int)
 
-    # Hammer - kis test felül, hosszú alsó kanóc
+    # Hammer
     df["pat_hammer"] = (
         (df["lower_shadow"] > df["body_abs"] * 2) &
         (df["upper_shadow"] < df["body_abs"] * 0.5) &
@@ -40,13 +40,13 @@ def detect_all_patterns(df: pd.DataFrame) -> pd.DataFrame:
         (df["body_abs"] > avg_body * 0.3)
     ).astype(int)
 
-    # Marubozu - nagy test, szinte nincs kanóc
+    # Marubozu
     df["pat_marubozu"] = (
         (df["body_pct"] > 0.9) &
         (df["body_abs"] > avg_body * 1.5)
     ).astype(int)
 
-    # Spinning Top - kis test, közepes kanócok
+    # Spinning Top
     df["pat_spinning_top"] = (
         (df["body_abs"] < avg_body * 0.5) &
         (df["upper_shadow"] > df["body_abs"]) &
@@ -113,7 +113,7 @@ def detect_all_patterns(df: pd.DataFrame) -> pd.DataFrame:
     # Morning Star
     df["pat_morning_star"] = (
         (~prev2_bullish) &                    # 1. bearish
-        (df["body_abs"].shift(1) < avg_body * 0.5) &      # 2. kis test
+        (df["body_abs"].shift(1) < avg_body * 0.5) &      # 2. tiny body
         (df["is_bullish"]) &                               # 3. bullish
         (df["close"] > (df["open"].shift(2) + df["close"].shift(2)) / 2)
     ).astype(int)
@@ -121,7 +121,7 @@ def detect_all_patterns(df: pd.DataFrame) -> pd.DataFrame:
     # Evening Star
     df["pat_evening_star"] = (
         (prev2_bullish) &                      # 1. bullish
-        (df["body_abs"].shift(1) < avg_body * 0.5) &       # 2. kis test
+        (df["body_abs"].shift(1) < avg_body * 0.5) &       # 2. tiny body
         (~df["is_bullish"]) &                              # 3. bearish
         (df["close"] < (df["open"].shift(2) + df["close"].shift(2)) / 2)
     ).astype(int)

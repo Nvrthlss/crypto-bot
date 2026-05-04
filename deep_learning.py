@@ -24,8 +24,8 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    print("⚠️ PyTorch not installed. LSTM model not available.")
-    print("   Install: pip install torch")
+    print("PyTorch not installed. LSTM model not available.")
+    print("Install: pip install torch")
 
 
 class TimeSeriesDataset:
@@ -59,7 +59,7 @@ class TimeSeriesDataset:
 if TORCH_AVAILABLE:
     class AttentionLayer(nn.Module):
         """
-        Attention mechanizmus az LSTM-hez.
+        Attention machanism for LSTM.
         Learns which parts of the sequence are most important.
         """
 
@@ -256,7 +256,7 @@ class DeepLearningModel:
 
         criterion = nn.CrossEntropyLoss(weight=weights_tensor)
 
-        print(f"   🧠 LSTM training ({self.epochs} epoch, {len(train_ds)} sequence(s))...")
+        print(f"   LSTM training ({self.epochs} epoch, {len(train_ds)} sequence(s))...")
 
         best_test_acc = 0
         patience = 10
@@ -289,7 +289,7 @@ class DeepLearningModel:
 
             train_acc = correct / total
 
-            # Teszt
+            # Test
             self.model.eval()
             test_correct = 0
             test_total = 0
@@ -318,7 +318,7 @@ class DeepLearningModel:
             else:
                 patience_counter += 1
                 if patience_counter >= patience:
-                    print(f"      ⏹️ Early stopping (epoch {epoch+1})")
+                    print(f"      Early stopping (epoch {epoch+1})")
                     break
 
         # Reload best model
@@ -334,7 +334,7 @@ class DeepLearningModel:
             "sequence_length": self.sequence_length,
         }
 
-        print(f"   ✅ LSTM best test accuracy: {best_test_acc:.1%}")
+        print(f"   LSTM best test accuracy: {best_test_acc:.1%}")
         return self.train_metrics
 
     def predict(self, df: pd.DataFrame) -> tuple:
@@ -352,7 +352,7 @@ class DeepLearningModel:
         if len(features) < self.sequence_length:
             return 0, 0.0
 
-        # Utolsó sequence(s)
+        # Last sequence(s)
         latest = features.iloc[-self.sequence_length:]
 
         if latest.isna().any().any():
@@ -366,7 +366,7 @@ class DeepLearningModel:
             output, attention_weights = self.model(X)
             probas = torch.softmax(output, dim=1).cpu().numpy()[0]
 
-        # Classes: 0=SELL, 1=HOLD, 2=BUY (mert labels+1 volt)
+        # Classes: 0=SELL, 1=HOLD, 2=BUY 
         predicted_class = int(np.argmax(probas))
         confidence = float(probas[predicted_class])
 
@@ -377,8 +377,7 @@ class DeepLearningModel:
 
     def get_attention_weights(self, df: pd.DataFrame) -> np.ndarray:
         """
-        Get attention weights - melyik időpillanatok
-        voltak a legfontosabbak a döntéshez.
+        Get attention weights
         """
         if not self.is_trained or self.model is None:
             return np.array([])

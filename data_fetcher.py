@@ -1,6 +1,6 @@
 """
 Crypto Trading Bot - Binance Data Fetcher
-Historical and real-time OHLCV data + Paper Trading kliens
+Historical and real-time OHLCV data + Paper Trading client
 """
 
 import time
@@ -184,8 +184,8 @@ class PaperTradingClient:
 
 def get_client():
     if config.PAPER_TRADING:
-        print("📝 PAPER TRADING mode active")
+        print("PAPER TRADING mode active")
         return PaperTradingClient()
     else:
-        print("⚠️  LIVE TRADING mode! Real money!")
+        print("LIVE TRADING mode! Real money!")
         return BinanceClient()

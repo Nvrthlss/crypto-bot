@@ -1,13 +1,5 @@
 """
 Crypto Trading Bot - Multi-Timeframe Analyzer
-Több időkereten elemez és összesíti a jelzéseket.
-
-A logika:
-- Primary (1h): konkrét belépési jelzés
-- Secondary (4h): trend megerősítés
-- Tertiary (1d): átfogó piaci irány
-
-Egy BUY jelzés sokkal erősebb, ha mindhárom TF bullish.
 """
 
 import pandas as pd
@@ -19,13 +11,6 @@ import config
 
 
 class MultiTimeframeAnalyzer:
-    """
-    Több időkereten végzett elemzés és jelzés-összesítés.
-
-    Minden timeframe-hez külön ML modell tartozik,
-    mert más mintákat tanulnak meg.
-    """
-
     def __init__(self):
         self.models = {}  # {(symbol, timeframe): TradingMLModel}
         self.trained_pairs = set()
@@ -34,7 +19,7 @@ class MultiTimeframeAnalyzer:
         return (symbol, timeframe)
 
     def _get_or_create_model(self, symbol: str, timeframe: str) -> TradingMLModel:
-        """Get or create model egy symbol+TF pároshoz"""
+        """Get or create model"""
         key = self._get_model_key(symbol, timeframe)
         if key not in self.models:
             self.models[key] = TradingMLModel()
@@ -42,7 +27,7 @@ class MultiTimeframeAnalyzer:
 
     def train_all(self, client, symbol: str) -> dict:
         """
-        Train all timeframes for a coin a modelleket.
+        Train all timeframes for a coin.
 
         Args:
             client: BinanceClient vagy PaperTradingClient
@@ -53,12 +38,12 @@ class MultiTimeframeAnalyzer:
         """
         results = {}
         print(f"\n{'━' * 50}")
-        print(f"📚 {symbol} model training")
+        print(f"{symbol} model training")
         print(f"{'━' * 50}")
 
         for tf_name, tf_interval in config.TIMEFRAMES.items():
             lookback = config.LOOKBACK_PERIODS.get(tf_interval, 500)
-            print(f"\n  ⏱️ {tf_name.upper()} ({tf_interval}) - {lookback} candle(s)")
+            print(f"\n   {tf_name.upper()} ({tf_interval}) - {lookback} candle(s)")
 
             try:
                 df = client.get_klines(
@@ -74,10 +59,10 @@ class MultiTimeframeAnalyzer:
                 metrics = model.train(df)
                 results[tf_interval] = metrics
 
-                print(f"    ✅ Accuracy: {metrics['ensemble_accuracy']:.1%}")
+                print(f"    Accuracy: {metrics['ensemble_accuracy']:.1%}")
 
             except Exception as e:
-                print(f"    ❌ Error: {e}")
+                print(f"    Error: {e}")
                 results[tf_interval] = None
 
         self.trained_pairs.add(symbol)
@@ -88,7 +73,7 @@ class MultiTimeframeAnalyzer:
         Full multi-timeframe analysis for a coin.
 
         Returns:
-            dict: combined signal + részletes TF bontás
+            dict: combined signal + TF
         """
         tf_results = {}
 
@@ -104,7 +89,7 @@ class MultiTimeframeAnalyzer:
                 df = add_all_indicators(df)
                 df = detect_all_patterns(df)
 
-                # Pattern jelzés
+                # Pattern signal
                 pat_signal = get_pattern_signals(df).iloc[-1]
 
                 # ML prediction
@@ -114,7 +99,7 @@ class MultiTimeframeAnalyzer:
                 else:
                     ml_signal, ml_confidence = 0, 0.0
 
-                # Indikátor snapshot
+                # Indicator snapshot
                 latest = df.iloc[-1]
                 indicators = {
                     "rsi": round(latest.get("rsi", 0), 2),
@@ -175,24 +160,24 @@ class MultiTimeframeAnalyzer:
         Aggregate timeframe signals via weighted voting.
         Works dynamically with any number of timeframes.
 
-        Szabályok:
-        1. A "primary" TF adja a konkrét BUY/SELL jelzést
-           (ha nincs primary, a "scalp" TF-et használja)
-        2. A magasabb TF-ek megerősítik vagy gyengítik
-        3. Ha a magasabb TF-ek ellentmondanak, a konfidencia csökken
-        4. Ha mindenki egyezik, a konfidencia növekszik
+        Rules:
+        1. The "primary" TF gives the BUY/SELL signal
+           (in case no primary, using the "scalp" TF)
+        2. A higher TFs strengthen or weaken
+        3. If higher TFs don't go together, confidence decreases
+        4. If all go together, confidence grows
         """
-        # Entry signal: primary-ból, ha nincs akkor scalp-ból
+        # Entry signal: primary, or scalp
         entry_tf = tf_results.get("primary", tf_results.get("scalp", {}))
         signal = entry_tf.get("ml_signal", 0)
         confidence = entry_tf.get("ml_confidence", 0)
 
-        # Scalp confirmation (ha van és nem ő az entry)
+        # Scalp confirmation (if exists, and not entry)
         scalp = tf_results.get("scalp", {})
         if "primary" in tf_results and scalp.get("ml_signal", 0) == signal and signal != 0:
             confidence = min(1.0, confidence * 1.05)
 
-        # Weighted trend calculation - dinamikusan minden TF-re
+        # Weighted trend calculation - dynamic for both TF
         weighted_trend = 0.0
         for tf_name, tf_data in tf_results.items():
             if "error" in tf_data:
@@ -201,7 +186,7 @@ class MultiTimeframeAnalyzer:
             trend = tf_data.get("trend_score", 0)
             weighted_trend += trend * weight
 
-        # Collect higher TF data (minden ami nem scalp/primary)
+        # Collect higher TF data (everything that's not scalp/primary)
         higher_tf_names = [name for name in config.TIMEFRAMES.keys()
                           if name not in ("scalp", "primary")]
         higher_tfs = [tf_results.get(name, {}) for name in higher_tf_names]
@@ -220,7 +205,7 @@ class MultiTimeframeAnalyzer:
             agree_ratio = agreeing / len(higher_trends)
             disagree_ratio = disagreeing / len(higher_trends)
 
-            # All agree → akár +25% konfidencia
+            # All agree → +25% confidence
             if agree_ratio >= 0.8:
                 confidence = min(1.0, confidence * 1.25)
                 alignment = "STRONG_ALIGNMENT"
@@ -232,13 +217,13 @@ class MultiTimeframeAnalyzer:
             elif disagree_ratio >= 0.5:
                 confidence *= 0.70
                 alignment = "DIVERGENCE"
-            # Mixed → semleges
+            # Mixed → none
             else:
                 alignment = "NEUTRAL"
         else:
             alignment = "NEUTRAL"
 
-        # Pattern confirmation (primary-ból)
+        # Pattern confirmation (from primary)
         primary_pattern = entry_tf.get("pattern_signal", 0)
         if signal == 1 and primary_pattern > 0.3:
             confidence = min(1.0, confidence * 1.10)
@@ -259,12 +244,12 @@ class MultiTimeframeAnalyzer:
 
 class MultiCoinScanner:
     """
-    Parallel multi-coin scanning és rangsorolása.
+    Parallel multi-coin scanning and ranking.
 
     Workflow:
     1. Analyzes all coins multi-timeframe-en
-    2. Ranks signals konfidencia szerint
-    3. Korreláció-szűrést alkalmaz (ne legyen túl sok hasonló coin)
+    2. Ranks signals based on confidence
+    3. Correlation-filtering
     4. Returns top trading opportunities
     """
 
@@ -274,12 +259,12 @@ class MultiCoinScanner:
         self.correlation_cache = {}
 
     def train_all_models(self):
-        """Minden coin minden timeframe modelljének betanítása"""
+        """Teaching models for all coins"""
         print("\n" + "=" * 60)
-        print("🎓 TRAINING ALL MODELS")
+        print(" TRAINING ALL MODELS")
         print(f"   {len(config.TRADING_PAIRS)} coin × "
               f"{len(config.TIMEFRAMES)} timeframe = "
-              f"{len(config.TRADING_PAIRS) * len(config.TIMEFRAMES)} modell")
+              f"{len(config.TRADING_PAIRS) * len(config.TIMEFRAMES)} model")
         print("=" * 60)
 
         all_metrics = {}
@@ -289,7 +274,7 @@ class MultiCoinScanner:
 
         # Summary
         print("\n" + "=" * 60)
-        print("📊 TRAINING SUMMARY")
+        print(" TRAINING SUMMARY")
         print(f"{'Coin':<12} {'1h':>8} {'4h':>8} {'1d':>8}")
         print("─" * 40)
         for symbol, metrics in all_metrics.items():
@@ -307,10 +292,10 @@ class MultiCoinScanner:
 
     def scan(self) -> list[dict]:
         """
-        Összes coin szkennelése, rangsorolás konfidencia szerint.
+        Scanning all coins, ranking based on confidence
 
         Returns:
-            Rendezett lista a legjobb lehetőségekről
+            Sorted list about best opportunities
         """
         opportunities = []
 
@@ -321,7 +306,7 @@ class MultiCoinScanner:
             try:
                 result = self.analyzer.analyze_symbol(self.client, symbol)
 
-                # Coin-specifikus küszöb
+                # Coin-specific 
                 overrides = config.PAIR_OVERRIDES.get(symbol, {})
                 min_conf = overrides.get("min_confidence", config.ML_CONFIDENCE_THRESHOLD)
 
@@ -336,7 +321,7 @@ class MultiCoinScanner:
             except Exception as e:
                 print(f"  ⚠️ {symbol} scan hiba: {e}")
 
-        # Rangsorolás: tradeable-k előre, azon belül konfidencia szerint
+        # Ranking
         opportunities.sort(
             key=lambda x: (x.get("tradeable", False), x.get("confidence", 0)),
             reverse=True
@@ -358,7 +343,6 @@ class MultiCoinScanner:
             returns1 = df1["close"].pct_change().dropna()
             returns2 = df2["close"].pct_change().dropna()
 
-            # Közös index
             common = returns1.index.intersection(returns2.index)
             if len(common) < 20:
                 return 0.0
@@ -373,8 +357,8 @@ class MultiCoinScanner:
     def filter_correlated(self, opportunities: list[dict]) -> list[dict]:
         """
         Filter highly correlated coins.
-        Ha BTC és ETH is BUY jelzést ad és >85% korrelálnak,
-        csak a magasabb konfidenciájút tartja meg.
+        If both BTC and ETH gives BUY signal and >85% correlation,
+        can only hold the higher confidence one.
         """
         if len(opportunities) <= 1:
             return opportunities
@@ -390,19 +374,19 @@ class MultiCoinScanner:
             if sym in excluded_symbols:
                 continue
 
-            # Ellenőrizzük, hogy van-e erősen korreláló coin ami még nem szűrt
+            # Scan if there is a highly correlating coin yet to be filtered    
             for other in tradeable:
                 other_sym = other["symbol"]
                 if other_sym == sym or other_sym in excluded_symbols:
                     continue
 
-                # Csak azonos irányú jelzéseknél szűrünk
+                # Filter only if signals have matching direction
                 if opp["signal"] == other["signal"]:
                     corr = self.get_correlation(
                         self.client, sym, other_sym
                     )
                     if abs(corr) > config.MAX_CORRELATION:
-                        # A gyengébbet kiszűrjük
+                        # Filtering out the weaker one
                         if other["confidence"] < opp["confidence"]:
                             excluded_symbols.add(other_sym)
                         else:
@@ -446,11 +430,10 @@ class MultiCoinScanner:
         # Summary
         tradeables = [o for o in opportunities if o.get("tradeable")]
         if tradeables:
-            print(f"\n🎯 {len(tradeables)} tradeable signal(s):")
+            print(f"\n {len(tradeables)} tradeable signal(s):")
             for t in tradeables:
                 details = t.get("timeframe_details", {})
 
-                # Dinamikus TF kiírás
                 tf_parts = []
                 for tf_name in config.TIMEFRAMES.keys():
                     tf_data = details.get(tf_name, {})
@@ -463,4 +446,4 @@ class MultiCoinScanner:
                       f"konf={t['confidence']:.1%} "
                       f"[{' | '.join(tf_parts)}]")
         else:
-            print("\n⏸️ Nincs tradeable signal(s) most.")
+            print("\n No tradeable signal(s).")

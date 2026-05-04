@@ -1,5 +1,5 @@
 """
-Crypto Trading Bot - Kockázatkezelés
+Crypto Trading Bot - Risk management
 Stop-loss, position sizing, drawdown protection
 """
 

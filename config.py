@@ -1,13 +1,13 @@
 """
 Crypto Trading Bot - Configuration
-Multi-coin, Multi-timeframe (5 szint)
+Multi-coin, Multi-timeframe (5 levels)
 """
 
 # ============================================================
 # BINANCE API
 # ============================================================
-BINANCE_API_KEY = "YOUR_API_KEY_HERE"
-BINANCE_API_SECRET = "YOUR_API_SECRET_HERE"
+BINANCE_API_KEY = "your_key"
+BINANCE_API_SECRET = "your_secret"
 
 BINANCE_BASE_URL = "https://testnet.binance.vision"
 BINANCE_WS_URL = "wss://testnet.binance.vision/ws"

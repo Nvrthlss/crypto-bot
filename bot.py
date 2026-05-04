@@ -29,7 +29,7 @@ class TradingBotV2:
         self.log_file = f"logs/trading_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
 
         print("=" * 60)
-        print("🤖 CRYPTO TRADING BOT v2")
+        print("CRYPTO TRADING BOT v2")
         print(f"   Coinok: {len(config.TRADING_PAIRS)} db")
         print(f"   Timeframe-ek: {', '.join(config.TIMEFRAMES.values())}")
         print(f"   Mode: {'📝 PAPER' if config.PAPER_TRADING else '💰 LIVE'}")
@@ -41,7 +41,7 @@ class TradingBotV2:
     def scan_and_trade(self):
         self.cycle_count += 1
         print(f"\n{'═' * 60}")
-        print(f"🔄 Scan #{self.cycle_count} — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Scan #{self.cycle_count} — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"{'═' * 60}")
 
         opportunities = self.scanner.scan()
@@ -67,7 +67,7 @@ class TradingBotV2:
                     close_side = "SELL" if exit_trade.side == "BUY" else "BUY"
                     self.client.place_order(exit_trade.symbol, close_side, exit_trade.quantity)
             except Exception as e:
-                print(f"   ⚠️ Position check error ({trade.symbol}): {e}")
+                print(f"  Position check error ({trade.symbol}): {e}")
 
     def _try_open_trade(self, opp: dict):
         symbol = opp["symbol"]
@@ -87,20 +87,20 @@ class TradingBotV2:
         # Already has an open position on this coin?
         coin_trades = [t for t in self.risk.open_trades if t.symbol == symbol]
         if len(coin_trades) >= config.MAX_TRADES_PER_COIN:
-            print(f"   ⏭️ {symbol}: already has open position, skip")
+            print(f"  {symbol}: already has open position, skip")
             return
 
         portfolio_value = self._get_portfolio_value()
         can_trade, reason = self.risk.can_open_trade(portfolio_value)
         if not can_trade:
-            print(f"   ⛔ {symbol}: {reason}")
+            print(f"  {symbol}: {reason}")
             return
 
         # Exposure check
         current_exposure = sum(t.entry_price * t.quantity for t in self.risk.open_trades)
         max_exposure = portfolio_value * (config.MAX_PORTFOLIO_EXPOSURE_PCT / 100)
         if current_exposure >= max_exposure:
-            print(f"   ⛔ {symbol}: Max exposure reached")
+            print(f"  {symbol}: Max exposure reached")
             return
 
         # Position size
@@ -119,12 +119,12 @@ class TradingBotV2:
             trade = self.risk.register_trade(
                 symbol, side, price, quantity, atr=opp.get("atr")
             )
-            print(f"\n   📥 {side} {symbol}")
-            print(f"      Quantity: {quantity} @ ${price:,.2f} (${position_usd:,.2f})")
-            print(f"      Confidence: {confidence:.1%} | Alignment: {opp.get('alignment', '?')}")
-            print(f"      SL: ${trade.stop_loss:,.2f} | TP: ${trade.take_profit:,.2f} | TS: ${trade.trailing_stop:,.2f}")
+            print(f"\n   {side} {symbol}")
+            print(f"    Quantity: {quantity} @ ${price:,.2f} (${position_usd:,.2f})")
+            print(f"    Confidence: {confidence:.1%} | Alignment: {opp.get('alignment', '?')}")
+            print(f"    SL: ${trade.stop_loss:,.2f} | TP: ${trade.take_profit:,.2f} | TS: ${trade.trailing_stop:,.2f}")
         except Exception as e:
-            print(f"   ❌ {symbol} order error: {e}")
+            print(f"   {symbol} order error: {e}")
 
     def _get_portfolio_value(self) -> float:
         if hasattr(self.client, "get_portfolio_value"):
@@ -151,7 +151,7 @@ class TradingBotV2:
 
     def run(self, cycles: int = None):
         self.train()
-        print(f"\n🚀 Bot started! Scan: {config.SCAN_INTERVAL_SECONDS}s")
+        print(f"\nBot started! Scan: {config.SCAN_INTERVAL_SECONDS}s")
 
         count = 0
         try:
@@ -160,14 +160,14 @@ class TradingBotV2:
                 count += 1
                 if cycles and count >= cycles:
                     break
-                print(f"\n   ⏳ Next scan: {config.SCAN_INTERVAL_SECONDS}s ...")
+                print(f"\n    Next scan: {config.SCAN_INTERVAL_SECONDS}s ...")
                 time.sleep(config.SCAN_INTERVAL_SECONDS)
         except KeyboardInterrupt:
-            print("\n\n⏹️ Bot stopped (Ctrl+C)")
+            print("\n\nBot stopped (Ctrl+C)")
         finally:
             stats = self.risk.get_statistics()
             print("\n" + "=" * 60)
-            print("📊 FINAL STATISTICS:")
+            print("FINAL STATISTICS:")
             for key, value in stats.items():
                 if isinstance(value, float):
                     print(f"   {key}: {value:.2f}")

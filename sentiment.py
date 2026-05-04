@@ -1,9 +1,9 @@
 """
 Crypto Trading Bot - Sentiment Analysis modul
-Források: Fear & Greed Index, funding rate, social volume
+Sources: Fear & Greed Index, funding rate, social volume
 
-Ezek az adatok extra "dimenziót" adnak a botnak - nem csak az árat
-és a technikai indikátorokat látja, hanem a market sentimentot is.
+This data adds an extra "dimension" to the bot—it doesn't just see the price
+and technical indicators, but also the market sentiment.
 """
 
 import requests
@@ -22,29 +22,29 @@ class SentimentSnapshot:
     funding_rate: float            # Futures funding rate (-0.01 to +0.01)
     long_short_ratio: float        # Long/Short arány
     social_score: float            # -1 to +1 (bearish to bullish)
-    composite_score: float         # Összesített sentiment -1 to +1
+    composite_score: float         # Total sentiment -1 to +1
     signals: dict                  # Detailed signals
 
 
 class SentimentAnalyzer:
     """
-    Market sentiment analysis több forrásból.
+    Market sentiment analysis from multiple sources.
 
-    Stratégiai logika:
-    - Extreme Fear + technikai BUY = erős vételi jelzés (contrarian)
-    - Extreme Greed + technikai SELL = erős eladási jelzés (contrarian)
-    - Magas funding rate = túlfűtött piac, óvatosság
-    - Social spike = potenciális pump & dump, óvatosság
+    Strategic logic:
+    - Extreme Fear + technical BUY = strong buy signal (contrarian)
+    - Extreme Greed + technical SELL = strong sell signal (contrarian)
+    - High funding rate = overheated market, exercise caution
+    - Social spike = potential pump & dump, exercise caution
     """
 
     def __init__(self):
         self.session = requests.Session()
         self.cache = {}
-        self.cache_duration = 300  # 5 perc cache
+        self.cache_duration = 300  # 5m cache
 
     def get_fear_greed_index(self) -> dict:
         """
-        Crypto Fear & Greed Index lekérdezése.
+        Crypto Fear & Greed Index query.
         Source: alternative.me API (free)
 
         Returns:
@@ -69,12 +69,12 @@ class SentimentAnalyzer:
             return result
 
         except Exception as e:
-            print(f"  ⚠️ Fear & Greed API hiba: {e}")
+            print(f"  Fear & Greed API hiba: {e}")
             return {"value": 50, "label": "Neutral", "timestamp": datetime.now().isoformat()}
 
     def get_funding_rate(self, symbol: str = "BTCUSDT") -> dict:
         """
-        Binance Futures funding rate lekérdezése.
+        Binance Futures funding rate query.
 
         High positive = too many longs (bearish signal)
         High negative = too many shorts (bullish signal)
@@ -107,13 +107,13 @@ class SentimentAnalyzer:
             return result
 
         except Exception as e:
-            print(f"  ⚠️ Funding rate API hiba: {e}")
+            print(f"   Funding rate API hiba: {e}")
             return {"rate": 0.0, "timestamp": "", "signal": "neutral"}
 
     def get_long_short_ratio(self, symbol: str = "BTCUSDT") -> dict:
         """
-        Long/Short arány a Binance futures-ből.
-        >1 = több long, <1 = több short
+        Long/Short ratio from Binance futures.
+        >1 = more long, <1 = more short
         """
         cache_key = f"ls_ratio_{symbol}"
         if self._is_cached(cache_key):
@@ -142,13 +142,13 @@ class SentimentAnalyzer:
             return result
 
         except Exception as e:
-            print(f"  ⚠️ Long/Short ratio API hiba: {e}")
+            print(f"   Long/Short ratio API hiba: {e}")
             return {"ratio": 1.0, "long_pct": 50, "short_pct": 50, "signal": "neutral"}
 
     def get_open_interest_change(self, symbol: str = "BTCUSDT") -> dict:
         """
-        Open Interest változás - total value of open futures positions.
-        Emelkedő OI + emelkedő ár = strong trend
+        Change in Open Interest - total value of open futures positions.
+        Rising OI + rising price = strong trend
         Rising OI + falling price = strong bearish pressure
         """
         cache_key = f"oi_{symbol}"
@@ -180,16 +180,16 @@ class SentimentAnalyzer:
             return result
 
         except Exception as e:
-            print(f"  ⚠️ Open Interest API hiba: {e}")
+            print(f"   Open Interest API hiba: {e}")
             return {"current_oi": 0, "change_pct": 0, "signal": "unknown"}
 
     def get_whale_alerts(self, symbol: str = "BTC") -> dict:
         """
-        Large transaction detection - "bálna mozgások".
+        Large transaction detection - "whale movements".
         Large inflows to Binance = selling pressure
         Large outflows = accumulation (bullish)
 
-        Megjegyzés: Real whale alerts require an external API (pl. whale-alert.io),
+        Note: Real whale alerts require an external API (pl. whale-alert.io),
         itt we approximate exchange netflow.
         """
         try:
@@ -219,14 +219,14 @@ class SentimentAnalyzer:
         """
         Composite sentiment score from all sources.
 
-        Kombinálja:
+        Combine:
         - Fear & Greed Index (contrarian)
         - Funding Rate
         - Long/Short Ratio
-        - Open Interest változás
+        - Change in Open Interest
 
         Returns:
-            SentimentSnapshot: teljes hangulat pillanatkép
+            SentimentSnapshot: snapshot of the overall atmosphere
         """
         # Data collection
         fg = self.get_fear_greed_index()
@@ -237,7 +237,7 @@ class SentimentAnalyzer:
         signals = {}
         scores = []
 
-        # 1. Fear & Greed (CONTRARIAN - félelem = vásárlási lehetőség)
+        # 1. Fear & Greed (CONTRARIAN - fear = buying opportunity)
         fg_value = fg["value"]
         if fg_value <= 20:
             fg_score = 0.8    # Extreme Fear = bullish (contrarian)
@@ -254,18 +254,18 @@ class SentimentAnalyzer:
         else:
             fg_score = 0.0
             signals["fear_greed"] = "neutral"
-        scores.append(("fear_greed", fg_score, 0.30))  # 30% súly
+        scores.append(("fear_greed", fg_score, 0.30))  # 30% weight
 
         # 2. Funding Rate (CONTRARIAN)
         rate = funding["rate"]
         if rate > 0.001:
-            fund_score = -0.6    # Magas funding = túl sok long
+            fund_score = -0.6
             signals["funding"] = "overleveraged_longs"
         elif rate > 0.0005:
             fund_score = -0.3
             signals["funding"] = "moderately_long"
         elif rate < -0.001:
-            fund_score = 0.6     # Negatív funding = túl sok short
+            fund_score = 0.6
             signals["funding"] = "overleveraged_shorts"
         elif rate < -0.0005:
             fund_score = 0.3
@@ -273,7 +273,7 @@ class SentimentAnalyzer:
         else:
             fund_score = 0.0
             signals["funding"] = "neutral"
-        scores.append(("funding", fund_score, 0.25))  # 25% súly
+        scores.append(("funding", fund_score, 0.25))  # 25% weight
 
         # 3. Long/Short Ratio (CONTRARIAN)
         ratio = ls["ratio"]
@@ -292,12 +292,12 @@ class SentimentAnalyzer:
         else:
             ls_score = 0.0
             signals["long_short"] = "balanced"
-        scores.append(("long_short", ls_score, 0.25))  # 25% súly
+        scores.append(("long_short", ls_score, 0.25))  # 25% weight
 
         # 4. Open Interest (TREND CONFIRMATION)
         oi_change = oi["change_pct"]
         if oi_change > 5:
-            oi_score = 0.3  # Növekvő OI = növekvő érdeklődés
+            oi_score = 0.3
             signals["open_interest"] = "rising_strong"
         elif oi_change > 2:
             oi_score = 0.15
@@ -311,7 +311,7 @@ class SentimentAnalyzer:
         else:
             oi_score = 0.0
             signals["open_interest"] = "stable"
-        scores.append(("open_interest", oi_score, 0.20))  # 20% súly
+        scores.append(("open_interest", oi_score, 0.20))  # 20% weight
 
         # Weighted aggregation
         composite = sum(score * weight for _, score, weight in scores)
@@ -340,7 +340,7 @@ class SentimentAnalyzer:
         return {
             "sent_fear_greed": sentiment.fear_greed_index / 100,  # 0-1
             "sent_fear_greed_extreme": 1 if sentiment.fear_greed_index < 20 or sentiment.fear_greed_index > 80 else 0,
-            "sent_funding_rate": sentiment.funding_rate * 1000,   # Skálázva
+            "sent_funding_rate": sentiment.funding_rate * 1000,   # Scaled
             "sent_ls_ratio": sentiment.long_short_ratio,
             "sent_composite": sentiment.composite_score,
             "sent_contrarian_buy": 1 if sentiment.composite_score > 0.3 else 0,
@@ -358,7 +358,7 @@ class SentimentAnalyzer:
         comp_pos = int((s.composite_score + 1) / 2 * bar_len)
         comp_bar = "█" * comp_pos + "░" * (bar_len - comp_pos)
 
-        print(f"\n   🧠 SENTIMENT — {symbol}")
+        print(f"\n   SENTIMENT — {symbol}")
         print(f"   {'─' * 45}")
         print(f"   Fear/Greed:    [{fg_bar}] {s.fear_greed_index}/100 ({s.fear_greed_label})")
         print(f"   Funding Rate:  {s.funding_rate:+.6f} ({s.signals.get('funding', '')})")
@@ -366,11 +366,11 @@ class SentimentAnalyzer:
         print(f"   Composite:     [{comp_bar}] {s.composite_score:+.3f}")
 
         if s.composite_score > 0.3:
-            print(f"   ➡️  Contrarian BUY jelzés")
+            print(f"     Contrarian BUY jelzés")
         elif s.composite_score < -0.3:
-            print(f"   ➡️  Contrarian SELL jelzés")
+            print(f"     Contrarian SELL jelzés")
         else:
-            print(f"   ➡️  Semleges hangulat")
+            print(f"     Semleges hangulat")
 
     # === Internal helpers ===
 

@@ -26,26 +26,26 @@ class DCAOrder:
 
 class KellyCriterion:
     """
-    Kelly-kritérium alapú position sizing.
+    Position sizing based on the Kelly criterion.
 
-    A Kelly-formula megmondja, hogy a tőke hány százalékát
-    érdemes kockáztatni egy adott win rate és reward/risk
-    arány mellett, hogy maximalizáljuk a hosszú távú növekedést.
+    The Kelly formula determines what percentage of capital
+    should be risked given a specific win rate and reward/risk
+    ratio in order to maximize long-term growth.
 
     f* = (p * b - q) / b
 
-    ahol:
-    - f* = optimális fogadási arány
-    - p = nyerési valószínűség
-    - b = átlagos nyereség / átlagos veszteség
-    - q = 1 - p (vesztési valószínűség)
+    where:
+    - f* = optimal betting ratio
+    - p = probability of winning
+    - b = average profit / average loss
+    - q = 1 - p (probability of losing)
     """
 
     @staticmethod
     def calculate(win_rate: float, avg_win: float, avg_loss: float,
                   fractional: float = 0.25) -> float:
         """
-        Kelly-kritérium számítás.
+        Kelly-criterion calculation.
 
         Args:
             win_rate: Win rate (0-1)
@@ -65,7 +65,7 @@ class KellyCriterion:
 
         kelly = (p * b - q) / b
 
-        # Fractional Kelly (kevésbé agresszív)
+        # Fractional Kelly (less agressive)
         position = max(0.005, min(kelly * fractional, 0.05))
 
         return position
@@ -74,7 +74,7 @@ class KellyCriterion:
     def from_trade_history(trades: list, fractional: float = 0.25) -> float:
         """Kelly számítás tényleges trade történetből"""
         if len(trades) < 10:
-            return 0.01  # Not enough adat, konzervatív
+            return 0.01  # Not enough data
 
         pnls = [t.pnl for t in trades if t.status != "OPEN"]
         if not pnls:
@@ -98,10 +98,10 @@ class StrategyEngine:
     Advanced trading strategy combination.
 
     Strategies:
-    1. Trend Following - a trend irányába kereskedünk
-    2. Mean Reversion - szélsőséges értékeknél ellentétes irány
-    3. Breakout - volatilitás szűkülés utáni kitörés
-    4. Sentiment Contrarian - market sentiment ellentéte
+    1. Trend Following - trading in the direction of the trend
+    2. Mean Reversion - trading in the opposite direction when prices reach extreme levels
+    3. Breakout - a breakout following a period of reduced volatility
+    4. Sentiment Contrarian - trading contrary to market sentiment
     """
 
     def __init__(self):
@@ -168,17 +168,17 @@ class StrategyEngine:
 
     def trend_following_signal(self, df: pd.DataFrame) -> dict:
         """
-        Trend Following stratégia.
-        The trend is your friend - a meglévő trend irányába kereskedünk.
+        Trend Following strategy.
+        The trend is your friend.
 
         Entry:
-        - EMA crossover (gyors > lassú = long)
+        - EMA crossover (fast > slow = long)
         - ADX > 25 (strong trend)
-        - Ár az Ichimoku cloud felett/alatt
+        - Price above/under Ichimoku cloud
 
         Exit:
         - Opposite EMA crossover
-        - ADX csökkenés 20 alá
+        - ADX falls below 20
         """
         latest = df.iloc[-1]
         prev = df.iloc[-2] if len(df) > 1 else latest
@@ -205,7 +205,7 @@ class StrategyEngine:
             confidence += 0.3
             reasons.append("EMA 9/21 bearish cross")
 
-        # ADX megerősítés
+        # ADX confirmation
         adx = latest.get("adx", 0)
         if adx > 25:
             plus_di = latest.get("plus_di", 0)
@@ -248,21 +248,20 @@ class StrategyEngine:
 
     def mean_reversion_signal(self, df: pd.DataFrame) -> dict:
         """
-        Mean Reversion stratégia.
-        Price reverts when too far from mean.
+        Mean Reversion Strategy.
+        Price reverts to the mean when it deviates too far from it.
 
         Entry:
-        - RSI < 25 (túladott) = BUY
-        - RSI > 75 (túlvett) = SELL
-        - Bollinger Band alsó/felső sáv elérése
-        - Stochastic szélsőérték
+        - RSI < 25 (oversold) = BUY
+        - RSI > 75 (overbought) = SELL
+        - Price reaches the lower/upper Bollinger Band
         """
         latest = df.iloc[-1]
         signal = 0
         confidence = 0.0
         reasons = []
 
-        # RSI szélsőségek
+        # RSI
         rsi = latest.get("rsi", 50)
         if rsi < 25:
             signal = 1
@@ -310,12 +309,12 @@ class StrategyEngine:
 
     def breakout_signal(self, df: pd.DataFrame) -> dict:
         """
-        Breakout stratégia.
-        Bollinger Band squeeze után várjuk a kitörést.
+        Breakout strategy.
+        After a Bollinger Band squeeze, we wait for the breakout.
 
         Signal:
-        - BB szűk (squeeze) → készülődés
-        - Volume spike + irány → kitörés megerősítés
+        - BB squeeze → setup
+        - Volume spike + direction → breakout confirmation
         """
         latest = df.iloc[-1]
         signal = 0
@@ -326,7 +325,7 @@ class StrategyEngine:
         if bb_width == 0:
             return {"strategy": "breakout", "signal": 0, "confidence": 0, "reasons": []}
 
-        # Squeeze detektálás
+        # Squeeze detection
         bb_width_history = df["bb_width"].tail(50) if "bb_width" in df.columns else pd.Series()
         if len(bb_width_history) > 20:
             is_squeeze = bb_width < bb_width_history.quantile(0.2)
@@ -341,7 +340,7 @@ class StrategyEngine:
         volume_ratio = latest.get("volume", 0) / df["volume"].rolling(20).mean().iloc[-1] if df["volume"].rolling(20).mean().iloc[-1] > 0 else 1
         has_volume = volume_ratio > 1.5
 
-        # Irány
+        # Direction
         close = latest["close"]
         bb_upper = latest.get("bb_upper", close)
         bb_lower = latest.get("bb_lower", close)
@@ -380,7 +379,7 @@ class StrategyEngine:
 
         1. Detect market regime
         2. Prioritize recommended strategy signal
-        3. A többi stratégia megerősítésként szolgál
+        3. The other strategies serve as reinforcement
         4. Sentiment modifies final confidence
         """
         regime = self.detect_market_regime(df)
@@ -397,7 +396,6 @@ class StrategyEngine:
             "breakout": breakout,
         }
 
-        # Az ajánlott stratégia a fő
         primary = strategies.get(recommended, trend)
 
         # Strategy weights based on regime
