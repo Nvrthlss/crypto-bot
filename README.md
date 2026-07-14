@@ -1,4 +1,4 @@
-# 🤖 Crypto Trading Bot
+# Crypto Trading Bot
 
 An ML-powered cryptocurrency trading bot that combines **technical analysis**, **candlestick pattern recognition**, and **ensemble machine learning** across multiple coins and timeframes.
 
